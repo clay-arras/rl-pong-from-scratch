@@ -7,8 +7,10 @@ from collections import defaultdict
 
 gym.register_envs(ale_py)
 
+NUM_NEURONS = 200
 
-class ActionSpace(Enum):
+
+class ActionSpace(int, Enum):
     NOOP = 0
     FIRE = 1
     RIGHT = 2
@@ -35,7 +37,9 @@ def relu_forward(Z: np.ndarray[float]) -> np.ndarray[float]:
     return Z
 
 
-def softmax_backward(s: np.ndarray[float], loss_gradient: np.ndarray[float]) -> np.ndarray[float]:
+def softmax_backward(
+    s: np.ndarray[float], loss_gradient: np.ndarray[float]
+) -> np.ndarray[float]:
     """Desc: calculates the gradients of the softmax function"""
     m = s.shape[0]
     jacobian = np.zeros((m, m))
@@ -87,15 +91,12 @@ def policy_gradient(
     """Desc: Given the inputs and weights/layers, we will calculate the softmax probabilities using forward propogation"""
 
     # W1 shape: (num_neurons, 128), x shape: (128,)
-    hidden_layer = np.dot(W1, x)
-
     # hidden_layer shape: (num_neurons,)
+    hidden_layer = np.dot(W1, x)
     hidden_layer = relu_forward(hidden_layer)
 
     # W2 shape: (6, num_neurons), hidden layer_shape: (num_neurons,)
     output = np.dot(W2, hidden_layer)
-
-    # output: (6,)
     probs = softmax_forward(output)
 
     return probs
@@ -104,9 +105,13 @@ def policy_gradient(
 def main() -> None:
     env = gym.make("ALE/Pong-v5", render_mode="human", obs_type="ram")
     obs = env.reset()
+    prev_obs = obs
 
     done = False
     cum_reward = 0
+
+    W1 = np.random.rand(NUM_NEURONS, 128)
+    W2 = np.random.rand(6, NUM_NEURONS)
 
     training_set: list[dict] = []
     while not done:
@@ -116,7 +121,7 @@ def main() -> None:
 
         frame_diff = calculate_frame_diffs(prev_obs, obs)
         action_probs = policy_gradient(x=frame_diff, env=env)
-        action: ActionSpace = action_probs.sample()
+        action = action_probs.sample()
         obs, reward, term, trunc, info = env.step(action)
 
         done |= term or trunc
@@ -136,9 +141,14 @@ def main() -> None:
         true_val = [1 if i == x["action"] else 0 for i in ActionSpace]
 
         dLds = x["probs"] - true_val
-        gradient = softmax_backward(s=x["probs"], loss_gradient=dLds)
-        W2 -= cum_reward * gradient
+        gradient_W2 = softmax_backward(s=x["probs"], loss_gradient=dLds) # dLdh
+        W2 -= cum_reward * gradient_W2
 
+        # dLdz * dz/dh
+        dLdh = np.dot(gradient_W2, W2)
+        dLda = relu_backward(dLdh)
+        W1 -= cum_reward * dLdh
+        # question: how to update W1
 
     # update all the subsequent updates to cum_reward * gradient
     env.close()
