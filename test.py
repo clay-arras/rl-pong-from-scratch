@@ -17,7 +17,7 @@ class ActionSpace(Enum):
     LEFTFIRE = 5
 
 
-def softmax(Z: np.ndarray[float]) -> np.ndarray[float]:
+def softmax_forward(Z: np.ndarray[float]) -> np.ndarray[float]:
     """Desc: gives an array of softmax probabilities between 0 and 1"""
     m = Z.shape[0]
     ret = np.zeros(m)
@@ -29,10 +29,24 @@ def softmax(Z: np.ndarray[float]) -> np.ndarray[float]:
     return ret
 
 
-def relu(Z: np.ndarray[float]) -> np.ndarray[float]:
+def relu_foward(Z: np.ndarray[float]) -> np.ndarray[float]:
     """Desc: rectified linear unit, sets all indices with values below zero to zero"""
     Z[Z < 0] = 0
     return Z
+
+
+def softmax_backward(Z: np.ndarray[float]) -> np.ndarray[float]:
+    """Desc: calculates the gradients of the softmax function"""
+    s = softmax_forward(Z)
+    m = s.shape[0]
+    jacobian = np.zeros((m, m))
+    for i in range(m):
+        for j in range(m):
+            if i == j:
+                jacobian[i][j] = s[i] * (1 - s[i])
+            else: 
+                jacobian[i][j] = -s[i] * s[j]
+    pass
 
 
 def forward_propagation(
@@ -74,6 +88,8 @@ def policy_gradient(
 
     # W2 shape: (6, num_neurons), hidden layer_shape: (num_neurons,)
     output = np.dot(W2, hidden_layer)
+
+    # output: (6,)
     probs = softmax(output)
 
     return probs.sample()
@@ -105,6 +121,10 @@ def main() -> None:
 
         prev_obs = obs
         env.render()
+
+    for x in training_set:
+        x["action"] # shape: (6,)
+        x["obs"] # shape: (128,)
 
     # result = (cum_reward > 0)
     # update all the subsequent updates to cum_reward * gradient
