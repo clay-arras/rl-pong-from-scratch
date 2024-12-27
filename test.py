@@ -29,24 +29,30 @@ def softmax_forward(Z: np.ndarray[float]) -> np.ndarray[float]:
     return ret
 
 
-def relu_foward(Z: np.ndarray[float]) -> np.ndarray[float]:
+def relu_forward(Z: np.ndarray[float]) -> np.ndarray[float]:
     """Desc: rectified linear unit, sets all indices with values below zero to zero"""
     Z[Z < 0] = 0
     return Z
 
 
-def softmax_backward(Z: np.ndarray[float]) -> np.ndarray[float]:
+def softmax_backward(s: np.ndarray[float], loss_gradient: np.ndarray[float]) -> np.ndarray[float]:
     """Desc: calculates the gradients of the softmax function"""
-    s = softmax_forward(Z)
     m = s.shape[0]
     jacobian = np.zeros((m, m))
     for i in range(m):
         for j in range(m):
             if i == j:
                 jacobian[i][j] = s[i] * (1 - s[i])
-            else: 
+            else:
                 jacobian[i][j] = -s[i] * s[j]
-    pass
+    gradients = np.dot(jacobian, loss_gradient)
+    return gradients
+
+
+def relu_backward(Z: np.ndarray[float]) -> np.ndarray[float]:
+    Z[Z <= 0] = 0
+    Z[Z > 0] = 1
+    return Z
 
 
 def forward_propagation(
@@ -77,22 +83,22 @@ def policy_gradient(
     W1: np.ndarray[np.ndarray[float]],
     W2: np.ndarray[np.ndarray[float]],
     env: gym.Env,
-) -> ActionSpace:
+) -> np.ndarray[float]:
     """Desc: Given the inputs and weights/layers, we will calculate the softmax probabilities using forward propogation"""
 
     # W1 shape: (num_neurons, 128), x shape: (128,)
     hidden_layer = np.dot(W1, x)
 
     # hidden_layer shape: (num_neurons,)
-    hidden_layer = relu(hidden_layer)
+    hidden_layer = relu_forward(hidden_layer)
 
     # W2 shape: (6, num_neurons), hidden layer_shape: (num_neurons,)
     output = np.dot(W2, hidden_layer)
 
     # output: (6,)
-    probs = softmax(output)
+    probs = softmax_forward(output)
 
-    return probs.sample()
+    return probs
 
 
 def main() -> None:
@@ -109,13 +115,15 @@ def main() -> None:
         done |= term or trunc
 
         frame_diff = calculate_frame_diffs(prev_obs, obs)
-        action = policy_gradient(x=frame_diff, env=env)
+        action_probs = policy_gradient(x=frame_diff, env=env)
+        action: ActionSpace = action_probs.sample()
         obs, reward, term, trunc, info = env.step(action)
 
         done |= term or trunc
 
         time_step = defaultdict(lambda x: [])
         time_step["action"] = action
+        time_step["probs"] = action_probs
         time_step["obs"] = frame_diff
         training_set.append(time_step)
 
@@ -123,10 +131,15 @@ def main() -> None:
         env.render()
 
     for x in training_set:
-        x["action"] # shape: (6,)
-        x["obs"] # shape: (128,)
+        # x["probs"]  # shape: (6,)
+        # x["obs"]  # shape: (128,)
+        true_val = [1 if i == x["action"] else 0 for i in ActionSpace]
 
-    # result = (cum_reward > 0)
+        dLds = x["probs"] - true_val
+        gradient = softmax_backward(s=x["probs"], loss_gradient=dLds)
+        W2 -= cum_reward * gradient
+
+
     # update all the subsequent updates to cum_reward * gradient
     env.close()
 
