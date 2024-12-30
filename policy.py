@@ -4,6 +4,7 @@ from typing import Callable
 import ale_py
 from enum import Enum
 from collections import defaultdict
+from activation import relu_backward, relu_forward, softmax_backward, softmax_forward
 
 gym.register_envs(ale_py)
 
@@ -11,7 +12,7 @@ NUM_NEURONS = 200
 
 
 class ActionSpace(int, Enum):
-    NOOP = 0
+    NOOP = 1
     FIRE = 1
     RIGHT = 2
     LEFT = 3
@@ -19,66 +20,12 @@ class ActionSpace(int, Enum):
     LEFTFIRE = 5
 
 
-def softmax_forward(Z: np.ndarray[float]) -> np.ndarray[float]:
-    """Desc: gives an array of softmax probabilities between 0 and 1"""
-    m = Z.shape[0]
-    ret = np.zeros(m)
-    exp_sum = 0
-    for i in range(m):
-        ret[i] = np.exp(Z[i])
-        exp_sum += np.exp(Z[i])
-    ret = ret / exp_sum
-    return ret
-
-
-def relu_forward(Z: np.ndarray[float]) -> np.ndarray[float]:
-    """Desc: rectified linear unit, sets all indices with values below zero to zero"""
-    Z[Z < 0] = 0
-    return Z
-
-
-def softmax_backward(
-    s: np.ndarray[float], loss_gradient: np.ndarray[float]
-) -> np.ndarray[float]:
-    """Desc: calculates the gradients of the softmax function"""
-    m = s.shape[0]
-    jacobian = np.zeros((m, m))
-    for i in range(m):
-        for j in range(m):
-            if i == j:
-                jacobian[i][j] = s[i] * (1 - s[i])
-            else:
-                jacobian[i][j] = -s[i] * s[j]
-    gradients = np.dot(jacobian, loss_gradient)
-    return gradients
-
-
-def relu_backward(Z: np.ndarray[float]) -> np.ndarray[float]:
-    Z[Z <= 0] = 0
-    Z[Z > 0] = 1
-    return Z
-
-
-def forward_propagation(
-    W: np.ndarray[np.ndarray[float]],
-    X: np.ndarray[float],
-    activation_fn: Callable[[np.ndarray], np.ndarray],
-) -> np.ndarray:
-    # """Desc: calculates forward propogation for a single neuron layer"""
-    # Z = np.dot(W, X)
-    # return activation_fn(Z)
-    pass
-
-
-def backward_propogation() -> None:
-    pass
-
-
 def calculate_frame_diffs(
     start_frame: np.ndarray[float], end_frame: np.ndarray[float]
 ) -> np.ndarray[float]:
-    # assert(start_frame.shape == (210, 160, 3))
-    # assert(end_frame.shape == (210, 160, 3))
+    assert (
+        start_frame.shape == end_frame.shape
+    ), f"Shape mismatch, start frame shape: {start_frame.shape} vs end frame shape: {end_frame.shape}"
     return end_frame - start_frame
 
 
@@ -104,7 +51,7 @@ def policy_gradient(
 
 def main() -> None:
     env = gym.make("ALE/Pong-v5", render_mode="human", obs_type="ram")
-    obs = env.reset()
+    obs, _ = env.reset()
     prev_obs = obs
 
     done = False
@@ -141,7 +88,7 @@ def main() -> None:
         true_val = [1 if i == x["action"] else 0 for i in ActionSpace]
 
         dLds = x["probs"] - true_val
-        gradient_W2 = softmax_backward(s=x["probs"], loss_gradient=dLds) # dLdh
+        gradient_W2 = softmax_backward(s=x["probs"], loss_gradient=dLds)  # dLdh
         W2 -= cum_reward * gradient_W2
 
         # dLdz * dz/dh
