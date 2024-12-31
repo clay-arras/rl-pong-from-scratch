@@ -27,9 +27,7 @@ def softmax_forward(Z: np.ndarray) -> np.ndarray:
 
 
 @typechecked
-def softmax_backward(
-    s: np.ndarray, loss_gradient: np.ndarray
-) -> np.ndarray:
+def softmax_backward(s: np.ndarray, loss_gradient: np.ndarray) -> np.ndarray:
     """
     Calculates the gradients of the softmax function.
 

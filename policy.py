@@ -9,7 +9,8 @@ from activation import relu_backward, relu_forward, softmax_backward, softmax_fo
 
 gym.register_envs(ale_py)
 
-NUM_NEURONS = 10
+NUM_NEURONS = 200
+TRAIN_ITER = 20000
 
 
 class ActionSpace(int, Enum):
@@ -22,9 +23,7 @@ class ActionSpace(int, Enum):
 
 
 @typechecked
-def calculate_frame_diffs(
-    start_frame: np.ndarray, end_frame: np.ndarray
-) -> np.ndarray:
+def calculate_frame_diffs(start_frame: np.ndarray, end_frame: np.ndarray) -> np.ndarray:
     """
     Calculate the difference between two frames.
 
@@ -41,13 +40,28 @@ def calculate_frame_diffs(
     return (end_frame - start_frame) / 256
 
 
+@typechecked
 def policy_gradient(
-    x: np.ndarray[float],
-    W1: np.ndarray[np.ndarray[float]],
-    W2: np.ndarray[np.ndarray[float]],
+    x: np.ndarray,
+    W1: np.ndarray,
+    W2: np.ndarray,
     env: gym.Env,
-) -> np.ndarray[float]:
-    """Desc: Given the inputs and weights/layers, we will calculate the softmax probabilities using forward propogation"""
+) -> np.ndarray:
+    """
+    Calculate the softmax probabilities using forward propagation.
+
+    Given the inputs and weights/layers, this function performs forward propagation
+    to calculate the softmax probabilities.
+
+    Parameters:
+    x (np.ndarray[float]): The input array, shape (128,).
+    W1 (np.ndarray[np.ndarray[float]]): The first layer weights, shape (num_neurons, 128).
+    W2 (np.ndarray[np.ndarray[float]]): The second layer weights, shape (6, num_neurons).
+    env (gym.Env): The gym environment.
+
+    Returns:
+    np.ndarray[float]: The softmax probabilities, shape (6,).
+    """
 
     # W1 shape: (num_neurons, 128), x shape: (128,)
     hidden_layer = np.dot(W1, x)
@@ -60,54 +74,65 @@ def policy_gradient(
 
 
 def main() -> None:
-    env = gym.make("ALE/Pong-v5", render_mode="human", obs_type="ram")
-    obs, _ = env.reset()
-    prev_obs = obs
-
-    done = False
-    cum_reward = 0
-
+    """
+    Train a neural network policy to play Pong using policy gradient reinforcement learning.
+    
+    The network architecture consists of:
+    - Input layer: 128 neurons (frame differences)
+    - Hidden layer: 200 neurons with ReLU activation
+    - Output layer: 6 neurons with softmax activation (action probabilities)
+    
+    Training runs for 20000 iterations, updating weights using policy gradients
+    with cumulative rewards as scaling factors.
+    """
     W1 = np.random.rand(NUM_NEURONS, 128)
     W2 = np.random.rand(6, NUM_NEURONS)
 
-    training_set: list[dict] = []
-    while not done:
-        obs, reward, term, trunc, info = env.step(ActionSpace.NOOP)
-        cum_reward += reward
-        done |= term or trunc
-
-        frame_diff = calculate_frame_diffs(prev_obs, obs)
-        action_probs = policy_gradient(x=frame_diff, env=env, W1=W1, W2=W2)
-        action = np.random.choice(len(ActionSpace), p=action_probs, size=None)
-        obs, reward, term, trunc, info = env.step(action)
-
-        done |= term or trunc
-
-        time_step = defaultdict(lambda x: [])
-        time_step["action"] = action
-        time_step["probs"] = action_probs
-        time_step["obs"] = frame_diff
-        training_set.append(time_step)
-
+    for it in TRAIN_ITER:
+        env = gym.make("ALE/Pong-v5", render_mode="human", obs_type="ram")
+        obs, _ = env.reset()
         prev_obs = obs
-        env.render()
 
-    for x in training_set:
-        # x["probs"]  # shape: (6,)
-        # x["obs"]  # shape: (128,)
-        true_val = [1 if i == x["action"] else 0 for i in ActionSpace]
+        done = False
+        cum_reward = 0
 
-        dLds = x["probs"] - true_val
-        gradient_W2 = softmax_backward(s=x["probs"], loss_gradient=dLds)  # dLdh
-        W2 -= cum_reward * gradient_W2
+        training_set: list[dict] = []
+        while not done:
+            obs, reward, term, trunc, info = env.step(ActionSpace.NOOP)
+            cum_reward += reward
+            done |= term or trunc
 
-        # dLdz * dz/dh
-        dLdh = np.dot(gradient_W2, W2)
-        dLda = relu_backward(dLdh)
-        W1 -= cum_reward * dLdh
-        # question: how to update W1
+            frame_diff = calculate_frame_diffs(prev_obs, obs)
+            action_probs = policy_gradient(x=frame_diff, env=env, W1=W1, W2=W2)
+            action = np.random.choice(len(ActionSpace), p=action_probs, size=None)
 
-    # update all the subsequent updates to cum_reward * gradient
+            obs, reward, term, trunc, info = env.step(action)
+            cum_reward += reward
+            done |= term or trunc
+
+            time_step = {
+                "action": action,
+                "probs": action_probs,
+                "obs": frame_diff
+            }
+            training_set.append(time_step)
+            prev_obs = obs
+            env.render()
+
+        for x in training_set:
+            true_val = [1 if i == x["action"] else 0 for i in ActionSpace]
+            dJdz2 = x["probs"] - true_val
+
+            dJda2 = softmax_backward(s=x["probs"], loss_gradient=dJdz2)  # shape is (6,)
+            hidden_output = relu_forward(np.dot(W1, x["obs"]))
+            dJdW2 = np.outer(dJda2, hidden_output)
+            W2 -= cum_reward * dJdW2
+
+            dJdz1 = np.dot(W2.T, dJda2)  # shape is (NUM_NEURONS,)
+            dJda1 = relu_backward(dJda1)
+            dJdW1 = np.outer(dJda1, x["obs"])
+            W1 -= cum_reward * dJdW1
+
     env.close()
 
 
