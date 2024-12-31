@@ -67,7 +67,7 @@ def main() -> None:
         done |= term or trunc
 
         frame_diff = calculate_frame_diffs(prev_obs, obs)
-        action_probs = policy_gradient(x=frame_diff, env=env)
+        action_probs = policy_gradient(x=frame_diff, env=env, W1=W1, W2=W2)
         action = action_probs.sample()
         obs, reward, term, trunc, info = env.step(action)
 
