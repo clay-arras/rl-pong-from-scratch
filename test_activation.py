@@ -11,6 +11,10 @@ def test_softmax_forward() -> None:
     assert (abs(difference) < 1e-6).all()
 
 
+def test_softmax_backward() -> None:
+    pass
+
+
 def test_relu_forward() -> None:
     activations = np.array([-1, 84, -0.1, 0, 4, 5])
     expected_output = np.array([0, 84, 0, 0, 4, 5])
