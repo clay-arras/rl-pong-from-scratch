@@ -4,15 +4,16 @@ from typing import Callable
 import ale_py
 from enum import Enum
 from collections import defaultdict
+from typeguard import typechecked
 from activation import relu_backward, relu_forward, softmax_backward, softmax_forward
 
 gym.register_envs(ale_py)
 
-NUM_NEURONS = 200
+NUM_NEURONS = 10
 
 
 class ActionSpace(int, Enum):
-    NOOP = 1
+    NOOP = 0
     FIRE = 1
     RIGHT = 2
     LEFT = 3
@@ -20,13 +21,24 @@ class ActionSpace(int, Enum):
     LEFTFIRE = 5
 
 
+@typechecked
 def calculate_frame_diffs(
-    start_frame: np.ndarray[float], end_frame: np.ndarray[float]
-) -> np.ndarray[float]:
+    start_frame: np.ndarray, end_frame: np.ndarray
+) -> np.ndarray:
+    """
+    Calculate the difference between two frames.
+
+    parameters:
+    start_frame (np.ndarray): The starting frame.
+    end_frame (np.ndarray): The ending frame.
+
+    Returns:
+    np.ndarray: The normalized difference between the end frame and the start frame.
+    """
     assert (
         start_frame.shape == end_frame.shape
     ), f"Shape mismatch, start frame shape: {start_frame.shape} vs end frame shape: {end_frame.shape}"
-    return end_frame - start_frame
+    return (end_frame - start_frame) / 256
 
 
 def policy_gradient(
@@ -38,14 +50,12 @@ def policy_gradient(
     """Desc: Given the inputs and weights/layers, we will calculate the softmax probabilities using forward propogation"""
 
     # W1 shape: (num_neurons, 128), x shape: (128,)
-    # hidden_layer shape: (num_neurons,)
     hidden_layer = np.dot(W1, x)
     hidden_layer = relu_forward(hidden_layer)
 
     # W2 shape: (6, num_neurons), hidden layer_shape: (num_neurons,)
     output = np.dot(W2, hidden_layer)
     probs = softmax_forward(output)
-
     return probs
 
 
@@ -68,7 +78,7 @@ def main() -> None:
 
         frame_diff = calculate_frame_diffs(prev_obs, obs)
         action_probs = policy_gradient(x=frame_diff, env=env, W1=W1, W2=W2)
-        action = action_probs.sample()
+        action = np.random.choice(len(ActionSpace), p=action_probs, size=None)
         obs, reward, term, trunc, info = env.step(action)
 
         done |= term or trunc

@@ -7,12 +7,15 @@ def softmax_forward(Z: np.ndarray) -> np.ndarray:
     """
     Gives an array of softmax probabilities between 0 and 1.
 
+    Computes with numerical stability by subtracting the max of Z.
+
     Parameters:
     Z (np.ndarray): The activations, shape (m,).
 
     Returns:
     np.ndarray: An array with softmax probabilities, shape (m,).
     """
+    scaled_Z = Z - max(Z)
     m = Z.shape[0]
     ret = np.zeros(m)
     exp_sum = 0
