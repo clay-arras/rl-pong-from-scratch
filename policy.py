@@ -10,7 +10,9 @@ from activation import relu_backward, relu_forward, softmax_backward, softmax_fo
 gym.register_envs(ale_py)
 
 NUM_NEURONS = 200
-TRAIN_ITER = 20000
+TRAIN_ITER = 2500
+BATCH_SIZE = 10
+LEARNING_RATE = 0.001
 
 
 class ActionSpace(int, Enum):
@@ -76,62 +78,73 @@ def policy_gradient(
 def main() -> None:
     """
     Train a neural network policy to play Pong using policy gradient reinforcement learning.
-    
+
     The network architecture consists of:
     - Input layer: 128 neurons (frame differences)
     - Hidden layer: 200 neurons with ReLU activation
     - Output layer: 6 neurons with softmax activation (action probabilities)
-    
+
     Training runs for 20000 iterations, updating weights using policy gradients
     with cumulative rewards as scaling factors.
     """
     W1 = np.random.rand(NUM_NEURONS, 128)
     W2 = np.random.rand(6, NUM_NEURONS)
 
-    for it in TRAIN_ITER:
-        env = gym.make("ALE/Pong-v5", render_mode="human", obs_type="ram")
-        obs, _ = env.reset()
-        prev_obs = obs
-
-        done = False
-        cum_reward = 0
-
+    for it in range(TRAIN_ITER):
+        rewards: list[float] = []
         training_set: list[dict] = []
-        while not done:
-            obs, reward, term, trunc, info = env.step(ActionSpace.NOOP)
-            cum_reward += reward
-            done |= term or trunc
 
-            frame_diff = calculate_frame_diffs(prev_obs, obs)
-            action_probs = policy_gradient(x=frame_diff, env=env, W1=W1, W2=W2)
-            action = np.random.choice(len(ActionSpace), p=action_probs, size=None)
-
-            obs, reward, term, trunc, info = env.step(action)
-            cum_reward += reward
-            done |= term or trunc
-
-            time_step = {
-                "action": action,
-                "probs": action_probs,
-                "obs": frame_diff
-            }
-            training_set.append(time_step)
+        for bt in range(BATCH_SIZE):
+            env = gym.make("ALE/Pong-v5", render_mode=None, obs_type="ram")
+            # env = gym.make("ALE/Pong-v5", render_mode="human", obs_type="ram")
+            obs, _ = env.reset()
             prev_obs = obs
-            env.render()
+            cum_reward: int = 0
 
+            done: bool = False
+            while not done:
+                obs, reward, term, trunc, info = env.step(ActionSpace.NOOP)
+                cum_reward += reward
+                done |= term or trunc
+
+                frame_diff = calculate_frame_diffs(prev_obs, obs)
+                action_probs = policy_gradient(x=frame_diff, env=env, W1=W1, W2=W2)
+                action = np.random.choice(len(ActionSpace), p=action_probs, size=None)
+
+                obs, reward, term, trunc, info = env.step(action)
+                cum_reward += reward
+                done |= term or trunc
+
+                time_step = {"action": action, "probs": action_probs, "obs": frame_diff}
+                training_set.append(time_step)
+                prev_obs = obs
+                # env.render()
+            rewards.append(cum_reward)
+
+        np_rewards = np.array(rewards)
+        cum_reward = np.sum(rewards)
         for x in training_set:
+            normalized_reward = (cum_reward - np.mean(np_rewards)) / (
+                np.std(np_rewards) + 1e-10
+            )
             true_val = [1 if i == x["action"] else 0 for i in ActionSpace]
             dJdz2 = x["probs"] - true_val
 
             dJda2 = softmax_backward(s=x["probs"], loss_gradient=dJdz2)  # shape is (6,)
             hidden_output = relu_forward(np.dot(W1, x["obs"]))
             dJdW2 = np.outer(dJda2, hidden_output)
-            W2 -= cum_reward * dJdW2
+            W2 -= LEARNING_RATE * normalized_reward * dJdW2
 
             dJdz1 = np.dot(W2.T, dJda2)  # shape is (NUM_NEURONS,)
-            dJda1 = relu_backward(dJda1)
+            dJda1 = relu_backward(dJdz1)
             dJdW1 = np.outer(dJda1, x["obs"])
-            W1 -= cum_reward * dJdW1
+            W1 -= LEARNING_RATE * normalized_reward * dJdW1
+
+        if it % 10 == 0:
+            print(f"ITERATION {it} COMPLETED --- AVERAGE REWARD: {np.mean(np_rewards)}")
+            with open(f"weights/w_{it}.npy", "wb") as f:
+                np.save(f, W1)
+                np.save(f, W2)
 
     env.close()
 

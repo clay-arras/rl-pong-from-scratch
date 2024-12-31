@@ -20,8 +20,8 @@ def softmax_forward(Z: np.ndarray) -> np.ndarray:
     ret = np.zeros(m)
     exp_sum = 0
     for i in range(m):
-        ret[i] = np.exp(Z[i])
-        exp_sum += np.exp(Z[i])
+        ret[i] = np.exp(scaled_Z[i])
+        exp_sum += np.exp(scaled_Z[i])
     ret = ret / exp_sum
     return ret
 
