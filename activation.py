@@ -1,8 +1,18 @@
 import numpy as np
+from typeguard import typechecked
 
 
-def softmax_forward(Z: np.ndarray[float]) -> np.ndarray[float]:
-    """Desc: gives an array of softmax probabilities between 0 and 1"""
+@typechecked
+def softmax_forward(Z: np.ndarray) -> np.ndarray:
+    """
+    Gives an array of softmax probabilities between 0 and 1.
+
+    Parameters:
+    Z (np.ndarray): The activations, shape (m,).
+
+    Returns:
+    np.ndarray: An array with softmax probabilities, shape (m,).
+    """
     m = Z.shape[0]
     ret = np.zeros(m)
     exp_sum = 0
@@ -13,16 +23,20 @@ def softmax_forward(Z: np.ndarray[float]) -> np.ndarray[float]:
     return ret
 
 
-def relu_forward(Z: np.ndarray[float]) -> np.ndarray[float]:
-    """Desc: rectified linear unit, sets all indices with values below zero to zero"""
-    Z[Z < 0] = 0
-    return Z
-
-
+@typechecked
 def softmax_backward(
-    s: np.ndarray[float], loss_gradient: np.ndarray[float]
-) -> np.ndarray[float]:
-    """Desc: calculates the gradients of the softmax function"""
+    s: np.ndarray, loss_gradient: np.ndarray
+) -> np.ndarray:
+    """
+    Calculates the gradients of the softmax function.
+
+    Parameters:
+    s (np.ndarray): ...
+    loss_gradient (np.ndarray): ...
+
+    Returns:
+    np.ndarray: ...
+    """
     m = s.shape[0]
     jacobian = np.zeros((m, m))
     for i in range(m):
@@ -35,8 +49,34 @@ def softmax_backward(
     return gradients
 
 
+@typechecked
+def relu_forward(Z: np.ndarray) -> np.ndarray:
+    """
+    Apply the ReLU activation function to the input array.
+
+    The ReLU (Rectified Linear Unit) function sets all negative values in the input array to zero.
+
+    Parameters:
+    Z (np.ndarray): The activations, shape (m,).
+
+    Returns:
+    np.ndarray: An array with all activation values below zero set to zero, shape (m,).
+    """
+    Z[Z < 0] = 0
+    return Z
+
+
+@typechecked
 def relu_backward(Z: np.ndarray[float]) -> np.ndarray[float]:
+    """
+    Derivative of the ReLU function, see ReLU description in relu_forward.
+
+    Parameters:
+    Z (np.ndarray): An array to which apply the derivative of ReLU on, shape (m,).
+
+    Returns:
+    np.ndarray: An array with all values above zero equal to one, else zero.
+    """
     Z[Z <= 0] = 0
     Z[Z > 0] = 1
     return Z
-
