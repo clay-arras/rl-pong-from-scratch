@@ -7,4 +7,3 @@
 
 <!-- the above gives you the Jacobian matrix. To get the gradient for a specfic weight, I'm assuming you need to just sum up along an axis -->
 <!-- resolution: there is no softmax gradient ... instead there are two hidden layers -->
-
