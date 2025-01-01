@@ -5,7 +5,7 @@ import ale_py
 from enum import Enum
 from collections import defaultdict
 from typeguard import typechecked
-from activation import relu_backward, relu_forward, softmax_backward, softmax_forward
+from ..activation import relu_backward, relu_forward, softmax_backward, softmax_forward
 
 gym.register_envs(ale_py)
 
@@ -89,14 +89,14 @@ def main() -> None:
     """
     W1 = np.random.rand(NUM_NEURONS, 128)
     W2 = np.random.rand(6, NUM_NEURONS)
+    env = gym.make("ALE/Pong-v5", render_mode="human", obs_type="ram")
 
     for it in range(TRAIN_ITER):
         rewards: list[float] = []
         training_set: list[dict] = []
 
         for bt in range(BATCH_SIZE):
-            env = gym.make("ALE/Pong-v5", render_mode=None, obs_type="ram")
-            # env = gym.make("ALE/Pong-v5", render_mode="human", obs_type="ram")
+            # env = gym.make("ALE/Pong-v5", render_mode=None, obs_type="ram")
             obs, _ = env.reset()
             prev_obs = obs
             cum_reward: int = 0
@@ -118,7 +118,8 @@ def main() -> None:
                 time_step = {"action": action, "probs": action_probs, "obs": frame_diff}
                 training_set.append(time_step)
                 prev_obs = obs
-                # env.render()
+
+                env.render()
             rewards.append(cum_reward)
 
         np_rewards = np.array(rewards)
