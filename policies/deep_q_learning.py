@@ -1,7 +1,7 @@
 import gymnasium as gym
 import numpy as np
 from enum import Enum
-from gym.envs.toy_text.frozen_lake import generate_random_map
+from gymnasium.envs.toy_text.frozen_lake import generate_random_map
 
 ALPHA = 0.2
 GAMMA = 0.8
