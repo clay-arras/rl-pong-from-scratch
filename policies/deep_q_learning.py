@@ -22,7 +22,9 @@ def in_bounds(x: int, y: int) -> bool:
     return 0 <= x < N_ROWS and 0 <= y < N_COLS
 
 
-def epsilon_greedy(q_table: np.ndarray, pos: tuple[int, int], epsilon: float = 0.05) -> ActionSpace:
+def epsilon_greedy(
+    q_table: np.ndarray, pos: tuple[int, int], epsilon: float = 0.05
+) -> ActionSpace:
     """
     Select an action using the epsilon-greedy policy.
 
@@ -40,7 +42,7 @@ def epsilon_greedy(q_table: np.ndarray, pos: tuple[int, int], epsilon: float = 0
         return np.random.choice(pos_arr, size=None)
 
     best_action: ActionSpace = 0
-    best_value: float = float('-inf')
+    best_value: float = float("-inf")
 
     pos_arr = DIRECTIONS + pos
     pos_arr = [p for p in pos_arr if in_bounds(p[0], p[1])]
@@ -83,11 +85,13 @@ def main() -> None:
             next_x, next_y = divmod(new_obs, N_COLS)
 
             # Bellman update equation (TD update)
-            next_max_q = np.max([
-                q_table[next_x + i[0]][next_y + i[1]]
-                for i in DIRECTIONS
-                if in_bounds(next_x + i[0], next_y + i[1])
-            ])
+            next_max_q = np.max(
+                [
+                    q_table[next_x + i[0]][next_y + i[1]]
+                    for i in DIRECTIONS
+                    if in_bounds(next_x + i[0], next_y + i[1])
+                ]
+            )
             q_table[curr_x][curr_y] += ALPHA * (
                 reward + discount * next_max_q - q_table[curr_x][curr_y]
             )
