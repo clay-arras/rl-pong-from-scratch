@@ -122,7 +122,7 @@ def main() -> None:
     for _ in range(NUM_ITER):
         obs, _ = env.reset()
         done: bool = False
-        discount: int = 1
+        discount: int = 0.9
         while not done:
             curr_x, curr_y = divmod(obs, N_ROWS)
             action = epsilon_greedy(q_table=q_table, pos=np.array([curr_x, curr_y]).T)
@@ -140,6 +140,7 @@ def main() -> None:
             has_autoreset = np.logical_or(term, trunc)
             done = done or (has_autoreset.sum() > NUM_ENVS/2)
             env.render()
+
         print(q_table)
 
 
